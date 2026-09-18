@@ -11,21 +11,29 @@ const router = express.Router();
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 
-// Slows down password-guessing: 20 attempts per 15 minutes per IP.
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 5,
+// Separate rate limiters for login and signup
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // 5 login attempts per IP
   standardHeaders: true,
   legacyHeaders: false,
-  message: { error: 'Too many attempts. Try again in a few minutes' },
+  message: { error: 'Too many login attempts. Try again in a few minutes' },
+});
+
+const signupLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour window
+  max: 10, // 10 signups per IP per hour
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many account creation attempts. Try again later' },
 });
 
 function setLoginCookie(res, userId) {
   const token = jwt.sign({ id: userId }, process.env.JWT_SECRET, { expiresIn: '7d' });
   res.cookie('token', token, {
-    httpOnly: true, // JavaScript in the page cannot read it (protects against XSS theft)
-    sameSite: 'lax', // basic CSRF protection
-    secure: process.env.NODE_ENV === 'production', // HTTPS only in production
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
     maxAge: SEVEN_DAYS_MS,
   });
 }
@@ -35,7 +43,7 @@ function publicUser(user) {
 }
 
 // POST /api/auth/signup
-router.post('/signup', authLimiter, async (req, res, next) => {
+router.post('/signup', signupLimiter, async (req, res, next) => {
   try {
     const name = String(req.body.name || '').trim();
     const email = String(req.body.email || '').trim().toLowerCase();
@@ -54,7 +62,7 @@ router.post('/signup', authLimiter, async (req, res, next) => {
       return res.status(409).json({ error: 'An account with this email already exists' });
     }
 
-    const passwordHash = await bcrypt.hash(password, 12); // salted + slow on purpose
+    const passwordHash = await bcrypt.hash(password, 12);
     const user = await User.create({ name, email, passwordHash });
 
     setLoginCookie(res, user._id);
@@ -68,7 +76,7 @@ router.post('/signup', authLimiter, async (req, res, next) => {
 });
 
 // POST /api/auth/login
-router.post('/login', authLimiter, async (req, res, next) => {
+router.post('/login', loginLimiter, async (req, res, next) => {
   try {
     const email = String(req.body.email || '').trim().toLowerCase();
     const password = String(req.body.password || '');
@@ -80,7 +88,6 @@ router.post('/login', authLimiter, async (req, res, next) => {
     const user = await User.findOne({ email });
     const ok = user && (await bcrypt.compare(password, user.passwordHash));
     if (!ok) {
-      // Same message for "no such user" and "wrong password" so attackers can't tell which emails exist.
       return res.status(401).json({ error: 'Invalid email or password' });
     }
 
@@ -101,7 +108,7 @@ router.post('/logout', (req, res) => {
   res.json({ message: 'Logged out' });
 });
 
-// GET /api/auth/me  (used by the frontend to check if a session exists)
+// GET /api/auth/me
 router.get('/me', requireAuth, async (req, res, next) => {
   try {
     const user = await User.findById(req.userId);
