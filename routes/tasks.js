@@ -6,7 +6,6 @@ const requireAuth = require('../middleware/auth');
 const router = express.Router();
 router.use(requireAuth);
 
-// MUST match the enum in models/Task.js and the <option> values in your frontend
 const STATUSES = ['todo', 'in-progress', 'done'];
 const isValidId = (id) => mongoose.Types.ObjectId.isValid(id);
 
@@ -21,7 +20,9 @@ function cleanBody(body, partial = false) {
     out.title = title;
   }
   if (body.description !== undefined) {
-    out.description = String(body.description || '').trim().slice(0, 1000);
+    const d = String(body.description || '').trim();
+    if (d.length > 500) errors.push('Description must be 500 characters or fewer');
+    out.description = d;
   }
   if (body.status !== undefined) {
     if (!STATUSES.includes(body.status)) errors.push('Invalid status');
@@ -38,8 +39,8 @@ function cleanBody(body, partial = false) {
 // GET /api/tasks
 router.get('/', async (req, res, next) => {
   try {
-    const filter = { userId: req.userId };
-    if (req.query.status && STATUSES.includes(req.query.status)) filter.status = req.query.status;
+    const filter = { owner: req.userId };
+    if (STATUSES.includes(req.query.status)) filter.status = req.query.status;
     const tasks = await Task.find(filter).sort({ createdAt: -1 });
     res.json(tasks);
   } catch (err) { next(err); }
@@ -51,13 +52,7 @@ router.post('/', async (req, res, next) => {
     const { out, errors } = cleanBody(req.body);
     if (errors.length) return res.status(400).json({ error: errors[0], details: errors });
 
-    const task = await Task.create({
-      userId: req.userId,
-      status: 'todo',
-      dueDate: null,
-      description: '',
-      ...out,
-    });
+    const task = await Task.create({ ...out, owner: req.userId });
     res.status(201).json(task);
   } catch (err) { next(err); }
 });
@@ -71,7 +66,7 @@ router.put('/:id', async (req, res, next) => {
     if (errors.length) return res.status(400).json({ error: errors[0], details: errors });
 
     const task = await Task.findOneAndUpdate(
-      { _id: req.params.id, userId: req.userId },
+      { _id: req.params.id, owner: req.userId },
       { $set: out },
       { new: true, runValidators: true }
     );
@@ -84,7 +79,7 @@ router.put('/:id', async (req, res, next) => {
 router.delete('/:id', async (req, res, next) => {
   try {
     if (!isValidId(req.params.id)) return res.status(404).json({ error: 'Task not found' });
-    const task = await Task.findOneAndDelete({ _id: req.params.id, userId: req.userId });
+    const task = await Task.findOneAndDelete({ _id: req.params.id, owner: req.userId });
     if (!task) return res.status(404).json({ error: 'Task not found' });
     res.json({ message: 'Task deleted successfully' });
   } catch (err) { next(err); }
