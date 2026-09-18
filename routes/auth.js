@@ -14,7 +14,7 @@ const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 // Slows down password-guessing: 20 attempts per 15 minutes per IP.
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 20,
+  max: 5,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many attempts. Try again in a few minutes' },
