@@ -2,7 +2,7 @@
 
 A small full-stack app built for the CEA WebOps core application. Users sign up, log in, and manage their own tasks (create, read, update, delete).
 
-- **Live link:** [text](https://cea-task-board.onrender.com)
+- **Live link:** https://cea-task-board.onrender.com
 - **Author:** Jayant Kumar Malka , CE25B040
 
 ## Tech stack
