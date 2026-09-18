@@ -8,17 +8,28 @@
   /* ---------- helpers ---------- */
 
   // Small wrapper around fetch: sends/receives JSON and turns error responses into exceptions.
+    // Small wrapper around fetch: sends/receives JSON and turns error responses into exceptions.
+
   async function api(path, method = 'GET', body) {
-    const res = await fetch('/api' + path, {
-      method,
-      headers: body ? { 'Content-Type': 'application/json' } : {},
-      body: body ? JSON.stringify(body) : undefined,
-      credentials: 'same-origin',
-    });
+    let res;
+    try {
+      res = await fetch('/api' + path, {
+        method,
+        headers: body ? { 'Content-Type': 'application/json' } : {},
+        body: body ? JSON.stringify(body) : undefined,
+        credentials: 'same-origin',
+      });
+    } catch (_) {
+      const netErr = new Error('Cannot reach the server. Check your connection and try again');
+      netErr.network = true;
+      throw netErr;
+    }
+
     let data = {};
     try { data = await res.json(); } catch (_) { /* empty or non-JSON body */ }
+
     if (!res.ok) {
-      const err = new Error(data.error || 'Something went wrong. Please try again');
+      const err = new Error(data.error || `Server error (${res.status}). Please try again`);
       err.status = res.status;
       err.details = data.details || [];
       throw err;
@@ -36,10 +47,8 @@
         ul.appendChild(li);
       });
       el.appendChild(ul);
-    } else if (err.status === undefined) {
-      el.textContent = 'Cannot reach the server. Check your connection and try again';
     } else {
-      el.textContent = err.message;
+      el.textContent = err.message; // network errors already carry their own message
     }
     el.hidden = false;
   }

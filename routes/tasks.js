@@ -42,7 +42,7 @@ router.get('/', async (req, res, next) => {
     const filter = { owner: req.userId };
     if (STATUSES.includes(req.query.status)) filter.status = req.query.status;
     const tasks = await Task.find(filter).sort({ createdAt: -1 });
-    res.json(tasks);
+    res.json({ tasks }); // wrapped to match app.js
   } catch (err) { next(err); }
 });
 
@@ -53,7 +53,7 @@ router.post('/', async (req, res, next) => {
     if (errors.length) return res.status(400).json({ error: errors[0], details: errors });
 
     const task = await Task.create({ ...out, owner: req.userId });
-    res.status(201).json(task);
+    res.status(201).json({ task });
   } catch (err) { next(err); }
 });
 
@@ -71,7 +71,7 @@ router.put('/:id', async (req, res, next) => {
       { new: true, runValidators: true }
     );
     if (!task) return res.status(404).json({ error: 'Task not found' });
-    res.json(task);
+    res.json({ task });
   } catch (err) { next(err); }
 });
 
