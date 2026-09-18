@@ -1,5 +1,7 @@
 # CEA Task Board
-
+Student Name : Jayant Kumar Malka
+Roll No: CE25B040
+Live Deployment : [text](https://cea-task-board.onrender.com)
 A small full-stack app built for the CEA WebOps core application. Users sign up, log in, and manage their own tasks (create, read, update, delete).
 
 - **Live link:** _add your Render URL here_
